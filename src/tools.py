@@ -1,12 +1,18 @@
-def fake_search_tools(query: str, count: int = 3) -> list[str]:
+# src/tools.py
+
+def fake_search_tools_a(query: str, count: int = 3) -> list[str]:
     """
-    A fake search tool that pretends to returj web results. For now, just return a list of made-up answers
+   Fake provider A (default). Returns numbered fake results.
     """
 
-    results = []
+    return [f"[FAKE-A] Result {i} for '{query}'" for i in range(1, count + 1)]
 
-    for i in range(1, count + 1):
-        results.append(f"Result {i} for '{query}' (fake)")
 
-    return results
+def fake_search_tools_b(query: str, count: int = 3) -> list[str]:
+    """
+    Fake provider B (alternate). Slightly different formatting so you can see which provider ran.
+    """
+
+    return [f"[FAKE-B] Result {i} for '{query}'" for i in range(1, count + 1)]
+
     
