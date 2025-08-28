@@ -1,4 +1,9 @@
 import argparse
+import os
+from dotenv import load_dotenv
+
+#load environment variables from .env file
+load_dotenv()
 
 def agent_answer(question: str, verbose: bool) -> str:
     
@@ -14,7 +19,8 @@ def agent_answer(question: str, verbose: bool) -> str:
         return "AI means artificial intelligence: machine that can perform tasks that requring intelligence"
 
     else:
-        return f"Sorry I dont know about '{question}' yet."
+        # use value from .env instead of hardcoding
+        return os.getenv("DEFAULT_ANSWER", "Sorry, I don't know yet.")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -27,8 +33,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--verbose", "-v", action="store_true", help="Print debug info about what the agent is doing")
 
     return parser.parse_args()
-
-
 
 if __name__ == "__main__":
     args = parse_args()
