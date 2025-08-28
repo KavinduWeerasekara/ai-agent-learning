@@ -5,7 +5,7 @@ from src.tools import fake_search_tools # <-- import the tool
 #load environment variables from .env file
 load_dotenv()
 
-def agent_answer(question: str, verbose: bool) -> str:
+def agent_answer(question: str, verbose: bool, count: int = 3) -> str:
     
     q = question.lower()
 
@@ -20,7 +20,7 @@ def agent_answer(question: str, verbose: bool) -> str:
 
     elif "search" in q:
         # NEW: use our fake search tool
-        results = fake_search_tools(q)
+        results = fake_search_tools(q, count=count)
         return "\n".join(results)
 
     else:

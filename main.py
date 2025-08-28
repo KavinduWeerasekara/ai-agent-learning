@@ -10,7 +10,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("question", nargs="*", help="Your question to the agent")
     parser.add_argument("--verbose", "-v", action="store_true", help="Print debug info about what the agent is doing")
-
+    parser.add_argument("--count", "-c", type=int, default=3, help="Number of results to return for search queries (default: 3)")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -21,5 +21,6 @@ if __name__ == "__main__":
     if args.verbose:
         print("[debug] raw args.question ->", args.question)
         print("[debug] final question string ->", question)
+        print("[debug] count ->", args.count)
 
-    print(agent_answer(question, verbose=args.verbose))
+    print(agent_answer(question, verbose=args.verbose, count=args.count))
