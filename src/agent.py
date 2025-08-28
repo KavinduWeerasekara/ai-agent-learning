@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from src.tools import fake_search_tools # <-- import the tool
 
 #load environment variables from .env file
 load_dotenv()
@@ -16,6 +17,11 @@ def agent_answer(question: str, verbose: bool) -> str:
     
     elif "ai" in q or "artificial" in q:
         return "AI means artificial intelligence: machine that can perform tasks that requring intelligence"
+
+    elif "search" in q:
+        # NEW: use our fake search tool
+        results = fake_search_tools(q)
+        return "\n".join(results)
 
     else:
         # use value from .env instead of hardcoding
