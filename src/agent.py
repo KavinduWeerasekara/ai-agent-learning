@@ -1,6 +1,8 @@
+# src/agent.py
+
 import os
 from dotenv import load_dotenv
-from src.tools import fake_search_tools_a, fake_search_tools_b
+from src.tools import fake_search_tools_a, fake_search_tools_b, searxng_search_sync
 
 #load environment variables from .env file
 load_dotenv()
@@ -31,8 +33,13 @@ def agent_answer(question: str, verbose: bool, count: int = 3,  provider: str = 
             results = fake_search_tools_a(q, count=count)
         elif provider in ("fakeb", "fake"):
             results = fake_search_tools_b(q, count=count)
+        elif provider in ("searxng", "sx"):
+            base = os.getenv("SEARXNG_BASE_URL")
+            if not base:
+                return "SEARXNG_BASE_URL is not set in .env"
+            results = searxng_search_sync(base, q, count=count)
         else:
-            return f"Unknown provider '{provider}'. Try --provider fakeA or --provider fakeB."
+            return f"Unknown provider '{provider}'. Try --provider fakeA, fakeB, or searxng."
 
         return "\n".join(results)
 
