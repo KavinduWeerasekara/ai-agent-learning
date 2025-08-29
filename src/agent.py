@@ -1,47 +1,24 @@
+# src/agent.py
 import os
-from typing import List, Union
+from typing import List
 from dotenv import load_dotenv
 from src.tools import fake_search_tool_a, fake_search_tool_b, searxng_search_sync
 from src.models import SearchResult
 
 load_dotenv()
 
-def _render_results_text(items: List[Union[SearchResult, str]]) -> str:
-    """Pretty-print results to text."""
+def _render_results_text(items: List[SearchResult]) -> str:
     lines = []
     for it in items:
-        if isinstance(it, SearchResult):
-            block = f"[{it.provider.upper()}] {it.title}"
-            if it.url:
-                block += f"\n  {it.url}"
-            if it.snippet:
-                block += f"\n  {it.snippet}"
-            lines.append(block)
-        else:
-            lines.append(str(it))
+        block = f"[{it.provider.upper()}] {it.title}"
+        if it.url:
+            block += f"\n  {it.url}"
+        if it.snippet:
+            block += f"\n  {it.snippet}"
+        lines.append(block)
     return "\n".join(lines)
 
-def _normalize_strings_to_models(strings: list[str], provider: str) -> List[SearchResult]:
-    """Temporary adapter: turn old string outputs into SearchResult models."""
-    out: List[SearchResult] = []
-    for s in strings:
-        lines = s.splitlines()
-        title = (lines[0].strip() if lines else s) or ""
-        url = ""
-        snippet = ""
-        if provider.lower() == "searxng" and len(lines) >= 2:
-            url = lines[1].strip()
-        if provider.lower() == "searxng" and len(lines) >= 3:
-            snippet = lines[2].strip()
-        out.append(SearchResult(title=title, url=url, snippet=snippet, provider=provider))
-    return out
-
-def agent_answer(
-    question: str,
-    verbose: bool = False,
-    count: int = 3,
-    provider: str = "fakeA",
-) -> str:
+def agent_answer(question: str, verbose: bool = False, count: int = 3, provider: str = "fakeA") -> str:
     q = question.lower()
     if verbose:
         print("[debug] normalized question ->", q)
@@ -58,27 +35,19 @@ def agent_answer(
             base = os.getenv("SEARXNG_BASE_URL")
             if not base:
                 return "SEARXNG_BASE_URL is not set in .env"
-            items = searxng_search_sync(base, q, count=count)  # List[SearchResult]
+            items = searxng_search_sync(base, q, count=count)
             return _render_results_text(items)
         elif prov in ("fakea", "fake"):
-            strings = fake_search_tool_a(q, count=count)
-            items = _normalize_strings_to_models(strings, provider="fakeA")
+            items = fake_search_tool_a(q, count=count)
             return _render_results_text(items)
         elif prov in ("fakeb",):
-            strings = fake_search_tool_b(q, count=count)
-            items = _normalize_strings_to_models(strings, provider="fakeB")
+            items = fake_search_tool_b(q, count=count)
             return _render_results_text(items)
         else:
             return f"Unknown provider '{provider}'. Try --provider fakeA, fakeB, or searxng."
-
     return os.getenv("DEFAULT_ANSWER", "Sorry, I don't know yet.")
 
-def agent_answer_json(
-    question: str,
-    verbose: bool = False,
-    count: int = 3,
-    provider: str = "fakeA",
-):
+def agent_answer_json(question: str, verbose: bool = False, count: int = 3, provider: str = "fakeA"):
     q = question.lower()
     if verbose:
         print("[debug][json] normalized question ->", q)
@@ -97,15 +66,13 @@ def agent_answer_json(
         base = os.getenv("SEARXNG_BASE_URL")
         if not base:
             return {"ok": False, "error": "SEARXNG_BASE_URL is not set in .env"}
-        items = searxng_search_sync(base, q, count=count)  # List[SearchResult]
+        items = searxng_search_sync(base, q, count=count)
         return {"ok": True, "mode": "search", "items": [it.model_dump() for it in items]}
     elif prov in ("fakea", "fake"):
-        strings = fake_search_tool_a(q, count=count)
-        items = _normalize_strings_to_models(strings, provider="fakeA")
+        items = fake_search_tool_a(q, count=count)
         return {"ok": True, "mode": "search", "items": [it.model_dump() for it in items]}
     elif prov in ("fakeb",):
-        strings = fake_search_tool_b(q, count=count)
-        items = _normalize_strings_to_models(strings, provider="fakeB")
+        items = fake_search_tool_b(q, count=count)
         return {"ok": True, "mode": "search", "items": [it.model_dump() for it in items]}
     else:
         return {"ok": False, "error": f"Unknown provider '{provider}'"}

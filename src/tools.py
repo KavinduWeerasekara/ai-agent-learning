@@ -1,17 +1,31 @@
+# src/tools.py
 import requests
 from typing import List
 from src.models import SearchResult
 
-def fake_search_tool_a(query: str, count: int = 3) -> list[str]:
-    return [f"[FAKE-A] Result {i} for '{query}'" for i in range(1, count + 1)]
+def fake_search_tool_a(query: str, count: int = 3) -> List[SearchResult]:
+    return [
+        SearchResult(
+            title=f"[FAKE-A] Result {i} for '{query}'",
+            url="",
+            snippet="",
+            provider="fakeA",
+        )
+        for i in range(1, count + 1)
+    ]
 
-def fake_search_tool_b(query: str, count: int = 3) -> list[str]:
-    return [f"[FAKE-B] ({i}/{count}) -> '{query}'" for i in range(1, count + 1)]
+def fake_search_tool_b(query: str, count: int = 3) -> List[SearchResult]:
+    return [
+        SearchResult(
+            title=f"[FAKE-B] ({i}/{count}) -> '{query}'",
+            url="",
+            snippet="",
+            provider="fakeB",
+        )
+        for i in range(1, count + 1)
+    ]
 
 def searxng_search_sync(base_url: str, query: str, count: int = 3, timeout: int = 20) -> List[SearchResult]:
-    """
-    Real SearXNG HTTP call (sync). Returns Pydantic SearchResult objects.
-    """
     try:
         url = base_url.rstrip("/") + "/search"
         params = {"q": query, "format": "json"}
@@ -19,7 +33,6 @@ def searxng_search_sync(base_url: str, query: str, count: int = 3, timeout: int 
         r.raise_for_status()
         data = r.json()
     except requests.exceptions.RequestException as e:
-        # Return one 'error-flavored' item; keeps types consistent
         return [SearchResult(title=f"[SEARXNG] Network error: {e}", url="", snippet="", provider="searxng")]
     except ValueError:
         return [SearchResult(title="[SEARXNG] Error parsing JSON response", url="", snippet="", provider="searxng")]
