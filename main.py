@@ -1,6 +1,7 @@
 import argparse
 from src.agent import agent_answer #import the agent logic
 import json
+from src.agent import agent_answer_json
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -35,7 +36,7 @@ if __name__ == "__main__":
         )
     else:
         # Step B will make agent_answer_json exist; for now placeholder:
-        from src.agent import agent_answer_json  # we'll add this next
+          # we'll add this next
         data = agent_answer_json(
             question,
             verbose=args.verbose,
