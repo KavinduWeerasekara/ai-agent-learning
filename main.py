@@ -1,5 +1,7 @@
+#main.py
+
 import argparse
-from src.agent import agent_answer #import the agent logic
+from src.agent import agent_answer
 import json
 from src.agent import agent_answer_json
 
@@ -15,6 +17,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--count", "-c", type=int, default=3, help="Number of results to return for search queries (default: 3)")
     parser.add_argument("--provider", "-p", choices=["fakeA", "fakeB", "searxng"], default="fakeA", help="Which provider to use")
     parser.add_argument("--json", action="store_true",help="Output structured JSON instead of text (for search results)")
+    parser.add_argument("--async", dest="use_async", action="store_true", help="Use async httpx path where available")
+    
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -32,6 +36,7 @@ if __name__ == "__main__":
                 verbose=args.verbose,
                 count=args.count,
                 provider=args.provider,
+                use_async=args.use_async
             )
         )
     else:
@@ -42,5 +47,6 @@ if __name__ == "__main__":
             verbose=args.verbose,
             count=args.count,
             provider=args.provider,
+            use_async=args.use_async
         )
         print(json.dumps(data, indent=2, ensure_ascii=False))
