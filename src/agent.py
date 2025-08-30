@@ -3,7 +3,7 @@
 import os
 from typing import List, Dict
 from dotenv import load_dotenv
-from src.tools import fake_search_tool_a, fake_search_tool_b, searxng_search_sync, searxng_search_async
+from src.tools import fake_search_tool_a, fake_search_tool_b, searxng_search_sync, searxng_search_async, brave_search_sync, brave_search_async
 from src.models import SearchResult
 import asyncio
 
@@ -52,6 +52,15 @@ def agent_answer(question: str, verbose: bool = False, count: int = 3, provider:
             else:
                 items = searxng_search_sync(base, q, count=count)
             return _render_results_text(items)
+        elif prov in ("brave",):
+            api_key = os.getenv("BRAVE_API_KEY")
+            if not api_key:
+                return "BRAVE_API_KEY is not set in .env"
+            if use_async:
+                items = asyncio.run(brave_search_async(api_key, q, count=count))
+            else:
+                items = brave_search_sync(api_key, q, count=count)
+            return _render_results_text(items)
         elif prov in ("fakea", "fake"):
             items = fake_search_tool_a(q, count=count)
             return _render_results_text(items)
@@ -86,6 +95,15 @@ def agent_answer_json(question: str, verbose: bool = False, count: int = 3, prov
             items = asyncio.run(searxng_search_async(base, q, count=count))
         else:
             items = searxng_search_sync(base, q, count=count)
+        return {"ok": True, "mode": "search", "items": [it.model_dump() for it in items]}
+    elif prov in ("brave",):
+        api_key = os.getenv("BRAVE_API_KEY")
+        if not api_key:
+            return {"ok": False, "error": "BRAVE_API_KEY is not set in .env"}
+        if use_async:
+            items = asyncio.run(brave_search_async(api_key, q, count=count))
+        else:
+            items = brave_search_sync(api_key, q, count=count)
         return {"ok": True, "mode": "search", "items": [it.model_dump() for it in items]}
     elif prov in ("fakea", "fake"):
         items = fake_search_tool_a(q, count=count)
@@ -133,6 +151,22 @@ def parallel_search(
             for q in queries:
                 results_by_query[q] = searxng_search_sync(base, q, count=count) 
 
+    elif prov in ("brave",):
+        api_key = os.getenv("BRAVE_API_KEY")
+        if not api_key:
+            return "BRAVE_API_KEY is not set in .env"
+        if use_async:
+            async def _run_all():
+                tasks = [brave_search_async(api_key, q, count=count) for q in queries]
+                lists = await asyncio.gather(*tasks, return_exceptions=False)
+                return lists
+            lists = asyncio.run(_run_all())
+            for q, items in zip(queries, lists):
+                results_by_query[q] = items
+        else:
+            for q in queries:
+                results_by_query[q] = brave_search_sync(api_key, q, count=count)
+
     elif prov in ("fakea", "fake"):
         for q in queries:
             results_by_query[q] = fake_search_tool_a(q, count=count)
@@ -179,6 +213,23 @@ def parallel_search_json(
         else:
             for q in queries:
                 results_by_query[q] = searxng_search_sync(base, q, count=count)
+
+    elif prov in ("brave",):
+        api_key = os.getenv("BRAVE_API_KEY")
+        if not api_key:
+            return {"ok": False, "error": "BRAVE_API_KEY is not set in .env"}
+        if use_async:
+            async def _run_all():
+                tasks = [brave_search_async(api_key, q, count=count) for q in queries]
+                lists = await asyncio.gather(*tasks, return_exceptions=False)
+                return lists
+            lists = asyncio.run(_run_all())
+            for q, items in zip(queries, lists):
+                results_by_query[q] = items
+        else:
+            for q in queries:
+                results_by_query[q] = brave_search_sync(api_key, q, count=count)
+
 
     elif prov in ("fakea", "fake"):
         for q in queries:
