@@ -31,7 +31,7 @@ if __name__ == "__main__":
     queries = [q for q in queries if q]
 
     if args.agent:
-        data = run_agent(question)
+        data = run_agent(question, provider=args.provider, count=args.count)
         print(json.dumps(data, indent=2, ensure_ascii=False))
     else:
         if queries:
