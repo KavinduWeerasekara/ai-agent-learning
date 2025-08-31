@@ -8,9 +8,48 @@ from src.prompt import AGENT_SYSTEM_PROMPT
 from src.tools import searxng_search_async, brave_search_async
 from src.models import SearchResult
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+import re
 
 
 agent = Agent(get_llm_model(), system_prompt=AGENT_SYSTEM_PROMPT, retries=0)
+
+_TOOL_BLOCK = re.compile(r'(?s)<tool_call>.*?</tool_call>')
+_URL_RE = re.compile(r'https?://\S+')
+
+def _clean_output(text: str) -> str:
+    # Remove any leaked <tool_call> blobs or raw tool JSON fragments
+    text = _TOOL_BLOCK.sub('', text)
+    text = re.sub(r'\{[\s\S]*?"arguments"[\s\S]*?\}', '', text)
+    return text.strip()
+
+def _format_sources_block(urls: list[str], max_n: int = 5) -> str:
+    if not urls:
+        return ""
+    listed = urls[:max_n]
+    lines = ["", "Sources:"]
+    for i, u in enumerate(listed, 1):
+        lines.append(f"{i}) {u}")
+    return "\n".join(lines)
+
+def _replace_or_append_sources(answer: str, verified_urls: list[str]) -> str:
+    # If the answer already has a Sources: block, drop it and append our verified one
+    parts = re.split(r'\n\s*Sources:\s*\n?', answer, maxsplit=1, flags=re.IGNORECASE)
+    clean = parts[0].rstrip()
+    block = _format_sources_block(verified_urls)
+    return (clean + ("\n" + block if block else "")).strip()
+
+# --- Verified-citation tracking (simple, process-local) ---
+_VERIFIED_URLS: set[str] = set()
+
+def _remember_urls(items: list[dict]):
+    for it in items:
+        url = (it.get("url") or "").strip()
+        if url:
+            _VERIFIED_URLS.add(url)
+
+def _reset_verified_urls():
+    _VERIFIED_URLS.clear()
+
 
 async def _search_one(provider: str, query: str, count: int) -> List[dict]:
     """
@@ -25,6 +64,7 @@ async def _search_one(provider: str, query: str, count: int) -> List[dict]:
         payload = [it.model_dump() for it in items]
         # optional truncation if you added _truncate_snippet
         payload = [{**it, "snippet": _truncate_snippet(it.get("snippet") or "")} for it in payload]
+        _remember_urls(payload)
         return _dedupe_by_location(payload)
 
     if provider_l == "brave":
@@ -34,6 +74,7 @@ async def _search_one(provider: str, query: str, count: int) -> List[dict]:
         items = await brave_search_async(api_key, query, count=count)
         payload = [it.model_dump() for it in items]
         payload = [{**it, "snippet": _truncate_snippet(it.get("snippet") or "")} for it in payload]
+        _remember_urls(payload)
         return _dedupe_by_location(payload)
 
     return [{"title": f"[agent] Unknown provider '{provider}'", "url": "", "snippet": "", "provider": provider_l}]
@@ -109,8 +150,15 @@ async def run_agent_async(question: str, provider: str = "searxng", count: int =
     Always returns JSON: {"ok": True, "answer": str}
     """
     deps = Deps(provider=provider, count=count)
+    _reset_verified_urls() 
     result = await agent.run(question, deps=deps)
-    return {"ok": True, "answer": result.output}
+    
+    # sanitize text and enforce verified sources
+    answer = _clean_output(result.output)
+    verified = sorted(_VERIFIED_URLS)                 # deterministic order
+    answer = _replace_or_append_sources(answer, verified)
+
+    return {"ok": True, "answer": answer}
 
 def run_agent(question: str, provider: str, count: int) -> dict:
     """
