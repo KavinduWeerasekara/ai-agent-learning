@@ -3,6 +3,7 @@
 import argparse
 from src.agent import agent_answer_json, parallel_search_json
 import json
+from src.agent_runtime import run_agent  # <-- NEW
 
 
 def parse_args() -> argparse.Namespace:
@@ -17,7 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--count", "-c", type=int, default=3, help="Number of results to return for search queries (default: 3)")
     parser.add_argument("--multi", type=str, default="", help='Run multiple queries separated by ";", e.g. --multi "python;golang;rust"')
     parser.add_argument("--provider", "-p", choices=["searxng", "brave"], default="searxng", help="Which provider to use")
-
+    parser.add_argument("--agent", action="store_true", help="Use the LLM agent (no tools yet) instead of raw search")
 
     return parser.parse_args()
 
@@ -29,19 +30,22 @@ if __name__ == "__main__":
     queries = [q.strip() for q in args.multi.split(";")] if args.multi else []
     queries = [q for q in queries if q]
 
-    if queries:
-        data = parallel_search_json(
-            queries=queries,
-            verbose=args.verbose,
-            count=args.count,
-            provider=args.provider,
-        )
-    
+    if args.agent:
+        data = run_agent(question)
+        print(json.dumps(data, indent=2, ensure_ascii=False))
     else:
-        data = agent_answer_json(
-            question,
-            verbose=args.verbose,
-            count=args.count,
-            provider=args.provider,
-        )
-    print(json.dumps(data, indent=2, ensure_ascii=False))
+        if queries:
+            data = parallel_search_json(
+                queries=queries,
+                verbose=args.verbose,
+                count=args.count,
+                provider=args.provider,
+            )
+        else:
+            data = agent_answer_json(
+                question,
+                verbose=args.verbose,
+                count=args.count,
+                provider=args.provider,
+            )
+        print(json.dumps(data, indent=2, ensure_ascii=False))
