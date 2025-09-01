@@ -160,8 +160,8 @@ async def run_agent_async(question: str, provider: str = "searxng", count: int =
 
     return {"ok": True, "answer": answer}
 
-def run_agent(question: str, provider: str, count: int) -> dict:
+async def run_agent(question: str, provider: str, count: int) -> dict:
     """
     Sync entry point (wraps the async runner with asyncio.run).
     """
-    return asyncio.run(run_agent_async(question, provider, count))
+    return await run_agent_async(question, provider, count)

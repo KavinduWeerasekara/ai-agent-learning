@@ -18,28 +18,6 @@ def _render_sectioned_text(results_by_query: Dict[str, List[SearchResult]]) -> s
         sections.append(f"{header}\n{body}")
     return "\n\n".join(sections)
 
-def agent_answer_json(question: str, verbose: bool = False, count: int = 3, provider: str = "searxng"):
-    q = question.lower()
-    if verbose:
-        print("[debug][json] normalized question ->", q)
-        print("[debug][json] provider ->", provider)
-        print("[debug][json] count ->", count)
-
-    prov = provider.lower()
-    if prov in ("searxng", "sx"):
-        base = os.getenv("SEARXNG_BASE_URL")
-        if not base:
-            return {"ok": False, "error": "SEARXNG_BASE_URL is not set in .env"}
-        items = asyncio.run(searxng_search_async(base, q, count=count))
-        return {"ok": True, "mode": "search", "items": [it.model_dump() for it in items]}
-    elif prov in ("brave",):
-        api_key = os.getenv("BRAVE_API_KEY")
-        if not api_key:
-            return {"ok": False, "error": "BRAVE_API_KEY is not set in .env"}
-        items = asyncio.run(brave_search_async(api_key, q, count=count))
-        return {"ok": True, "mode": "search", "items": [it.model_dump() for it in items]}
-    else:
-        return {"ok": False, "error": f"Unknown provider '{provider}'"}
 
 def parallel_search_json(
     queries: List[str],
