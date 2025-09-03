@@ -1,8 +1,11 @@
+#agent_runtime.py
+
 import os
 import asyncio
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Optional, Union
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.messages import ModelRequest, ModelResponse
 from src.llm import get_llm_model
 from src.prompt import AGENT_SYSTEM_PROMPT
 from src.tools import searxng_search_async, brave_search_async
@@ -117,6 +120,14 @@ class Deps:
     provider: str  # "searxng" | "brave"
     count: int     # number of results per search
 
+class _SimpleResult:
+    """Tiny wrapper so the Streamlit UI can call .output and .new_messages()."""
+    def __init__(self, output: str, new_msgs: List[Union[ModelRequest, ModelResponse]]):
+        self.output = output
+        self._new_msgs = new_msgs
+    def new_messages(self):
+        return self._new_msgs
+
 @agent.tool
 async def web_search(ctx: RunContext[Deps], query: str) -> List[dict]:
     """
@@ -144,24 +155,41 @@ async def web_search_multi(ctx: RunContext[Deps], queries: List[str]) -> Dict[st
         out[q] = items
     return out
 
-async def run_agent_async(question: str, provider: str = "searxng", count: int = 3) -> dict:
+async def run_agent_async(question: str, provider: str = "searxng", count: int = 3, message_history: Optional[List[Union[ModelRequest, ModelResponse]]] = None):
     """
     Run the LLM agent with access to the `web_search` tool.
     Always returns JSON: {"ok": True, "answer": str}
     """
+    if message_history is None:
+        message_history = []
+    
     deps = Deps(provider=provider, count=count)
     _reset_verified_urls() 
-    result = await agent.run(question, deps=deps)
+
+    # --- Call pydantic-ai in a version-tolerant way ---
+    try:
+        # Newer signature
+        result = await agent.run(question, deps=deps, messages=message_history)
+    except TypeError:
+        # Older signature
+        result = await agent.run(question, deps=deps, message_history=message_history)
     
     # sanitize text and enforce verified sources
     answer = _clean_output(result.output)
     verified = sorted(_VERIFIED_URLS)                 # deterministic order
     answer = _replace_or_append_sources(answer, verified)
 
-    return {"ok": True, "answer": answer}
+    # --- Collect new messages in a version-tolerant way ---
+    new_msgs_method = getattr(result, "new_messages", None)
+    if callable(new_msgs_method):
+        new_msgs = new_msgs_method()
+    else:
+        new_msgs = getattr(result, "messages", [])
 
-async def run_agent(question: str, provider: str, count: int) -> dict:
+    return _SimpleResult(answer, new_msgs)
+
+async def run_agent(question: str, provider: str, count: int, message_history: Optional[List[Union[ModelRequest, ModelResponse]]] = None):
     """
     Sync entry point (wraps the async runner with asyncio.run).
     """
-    return await run_agent_async(question, provider, count)
+    return await run_agent_async(question, provider, count, message_history)
